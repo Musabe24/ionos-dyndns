@@ -34,9 +34,12 @@ def get_external_ip():
 
 def update_dynamic_dns(hostname, ip):
     url = f"{BASE_URL}/v1/dyndns"
+    # Angepasstes Payload: Einbetten der Daten in ein "dyndns"-Objekt
     payload = {
-        "hostname": hostname,
-        "ip": ip
+        "dyndns": {
+            "hostname": hostname,
+            "ip": ip
+        }
     }
     headers = {
         "X-API-Key": API_KEY,
@@ -48,7 +51,6 @@ def update_dynamic_dns(hostname, ip):
             print(f"Erfolgreich aktualisiert: {hostname} -> {ip}")
         else:
             print(f"Update fehlgeschlagen für {hostname} (Status {response.status_code}): {response.text}")
-            # Optionale: Weitere Informationen aus der Antwort extrahieren
             try:
                 error_info = response.json()
                 print("Details:", error_info)
