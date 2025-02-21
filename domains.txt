@@ -1,0 +1,2 @@
+sub1.domain.com
+sub2.domain.com
