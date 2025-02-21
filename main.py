@@ -1,82 +1,65 @@
 import configparser
+import json
 import requests
 
-# Lese den API-Key aus der Konfigurationsdatei
 def load_api_key(config_file="config.ini"):
+    """Lädt den API-Key aus der Konfigurationsdatei."""
     config = configparser.ConfigParser()
+    config.read(config_file)
     try:
-        config.read(config_file)
-        api_key = config.get("ionos", "api_key")
-        if not api_key:
-            raise ValueError("API-Key nicht gefunden")
-        return api_key
+        return config.get("ionos", "api_key")
     except Exception as e:
         print(f"Fehler beim Laden des API-Keys: {e}")
         raise
 
-API_KEY = load_api_key()
-BASE_URL = "https://api.hosting.ionos.com/dns"  # Basis-URL der IONOS DNS API
-
-def get_external_ip():
-    """
-    Ermittelt die aktuelle externe IP-Adresse.
-    """
+def load_domains(domains_file="domains.txt"):
+    """Lädt die Domains aus der domains.txt als Liste."""
     try:
-        response = requests.get("https://api.ipify.org?format=json", timeout=10)
-        response.raise_for_status()
-        ip = response.json().get("ip")
-        if not ip:
-            raise ValueError("Keine IP-Adresse in der Antwort gefunden")
-        return ip
+        with open(domains_file, "r", encoding="utf-8") as file:
+            domains = [line.strip() for line in file if line.strip()]
+        return domains
     except Exception as e:
-        print(f"Fehler beim Abrufen der externen IP: {e}")
+        print(f"Fehler beim Einlesen der domains.txt: {e}")
         raise
 
-def update_dynamic_dns(hostname, ip):
-    url = f"{BASE_URL}/v1/dyndns"
-    # Angepasstes Payload: Einbetten der Daten in ein "dyndns"-Objekt
+def update_dynamic_dns(domains, api_key):
+    """Sendet einen POST-Request mit dem JSON-Payload, um die Dynamic DNS Einstellungen zu aktualisieren."""
+    url = "https://api.hosting.ionos.com/dns/v1/dyndns"
     payload = {
-        "dyndns": {
-            "hostname": hostname,
-            "ip": ip
-        }
+        "domains": domains,
+        "description": "My DynamicDns"
     }
     headers = {
-        "X-API-Key": API_KEY,
+        "X-API-Key": api_key,
         "Content-Type": "application/json"
     }
+    
+    print("Sende folgenden Payload:")
+    print(json.dumps(payload, indent=2))
+    
     try:
         response = requests.post(url, json=payload, headers=headers, timeout=10)
         if response.status_code in (200, 201):
-            print(f"Erfolgreich aktualisiert: {hostname} -> {ip}")
+            print("Erfolgreich aktualisiert:")
+            print(response.json())
         else:
-            print(f"Update fehlgeschlagen für {hostname} (Status {response.status_code}): {response.text}")
+            print(f"Update fehlgeschlagen (Status {response.status_code}):")
             try:
                 error_info = response.json()
                 print("Details:", error_info)
             except Exception:
-                pass
+                print("Fehlerhafte Antwort:", response.text)
     except Exception as e:
-        print(f"Fehler beim Aktualisieren von {hostname}: {e}")
+        print(f"Fehler beim Senden des Requests: {e}")
 
 def main():
     try:
-        ip = get_external_ip()
-        print(f"Aktuelle externe IP: {ip}")
+        api_key = load_api_key()
+        domains = load_domains()
     except Exception:
         return
 
-    # Lese alle Domains aus der Datei, leere Zeilen werden ignoriert
-    try:
-        with open("domains.txt", "r", encoding="utf-8") as file:
-            domains = [line.strip() for line in file if line.strip()]
-    except Exception as e:
-        print(f"Fehler beim Einlesen der domains.txt: {e}")
-        return
-
-    # Für jede Domain wird die IP-Adresse aktualisiert
-    for domain in domains:
-        update_dynamic_dns(domain, ip)
+    update_dynamic_dns(domains, api_key)
 
 if __name__ == "__main__":
     main()
